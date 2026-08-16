@@ -4,3 +4,5 @@ spring:
 docqa:
   ai:
     provider: stub
+  chunking:
+    similarity-threshold: 0.25

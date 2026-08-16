@@ -2,6 +2,7 @@ package com.schooldesk.docqa.embedding;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
@@ -16,7 +17,7 @@ public class StubEmbeddingClient implements EmbeddingClient {
     public List<float[]> embed(List<String> texts) {
         List<float[]> results = new ArrayList<>(texts.size());
         for (String text : texts) {
-            results.add(deterministicVector(text));
+            results.add(bagOfWordsVector(text));
         }
         return results;
     }
@@ -26,14 +27,17 @@ public class StubEmbeddingClient implements EmbeddingClient {
         return DIMS;
     }
 
-    private float[] deterministicVector(String text) {
+    private float[] bagOfWordsVector(String text) {
         float[] vector = new float[DIMS];
-        int hash = text.hashCode();
-        for (int i = 0; i < DIMS; i++) {
-            hash = hash * 1664525 + 1013904223;
-            vector[i] = ((hash & 0x7FFFFFFF) / (float) Integer.MAX_VALUE) * 2 - 1;
+        for (String token : tokenize(text)) {
+            int bucket = Math.floorMod(token.hashCode(), DIMS);
+            vector[bucket] += 1.0f;
         }
         return normalize(vector);
+    }
+
+    private String[] tokenize(String text) {
+        return text.toLowerCase(Locale.ROOT).split("[^a-z0-9]+");
     }
 
     private float[] normalize(float[] v) {
