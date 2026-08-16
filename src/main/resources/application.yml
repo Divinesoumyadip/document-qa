@@ -60,7 +60,9 @@ docqa:
     chunk-size: 700
     overlap: 100
     default-top-k: 5
-    similarity-threshold: 0.65
+    # Scale differs by embedder: the stub is bag-of-words, OpenAI is semantic.
+    # Overridden per provider below.
+    similarity-threshold: ${DOCQA_SIMILARITY_THRESHOLD:0.25}
 
   conversation:
     max-turns: 6

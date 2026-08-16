@@ -127,7 +127,8 @@ requires a migration *and* a full re-embed.
 
 ## Similarity threshold
 
-**Production default: 0.65. Test profile: 0.25.**
+**Default: 0.25 with the stub embedder. 0.65 is the intended value for
+`text-embedding-3-small`, set via `DOCQA_SIMILARITY_THRESHOLD`.**
 
 Honest status: 0.65 is a starting value, not yet calibrated against a real corpus
 with real embeddings. That calibration is the highest-priority remaining work.
