@@ -12,11 +12,20 @@ public class RecursiveChunker {
 
     private final ChunkingProperties properties;
 
-    RecursiveChunker(ChunkingProperties properties) {
+    public RecursiveChunker(ChunkingProperties properties) {
         this.properties = properties;
     }
 
     public List<Chunk> chunk(String text, int pageNumber, String documentTitle) {
+        return chunk(text, pageNumber, documentTitle, 0);
+    }
+
+    /**
+     * startIndex lets a caller ingesting a multi-page document keep chunk
+     * indices unique across pages. Without this, every page restarts at 0 and
+     * the (document_id, chunk_index) unique constraint rejects page 2 onward.
+     */
+    public List<Chunk> chunk(String text, int pageNumber, String documentTitle, int startIndex) {
         if (text == null || text.isBlank()) {
             return List.of();
         }
@@ -24,14 +33,16 @@ public class RecursiveChunker {
         List<String> rawChunks = split(text.strip(), properties.chunkSize(), properties.overlap());
         List<Chunk> chunks = new ArrayList<>(rawChunks.size());
 
-        for (int i = 0; i < rawChunks.size(); i++) {
-            String content = rawChunks.get(i).strip();
+        int index = startIndex;
+        for (String raw : rawChunks) {
+            String content = raw.strip();
             if (content.isBlank()) {
                 continue;
             }
-            String breadcrumb = documentTitle + " [page " + pageNumber + ", chunk " + (i + 1) + "]";
+            String breadcrumb = documentTitle + " [page " + pageNumber + ", chunk " + (index + 1) + "]";
             String embeddedText = breadcrumb + "\n\n" + content;
-            chunks.add(new Chunk(i, pageNumber, content, embeddedText, estimateTokens(content)));
+            chunks.add(new Chunk(index, pageNumber, content, embeddedText, estimateTokens(content)));
+            index++;
         }
         return chunks;
     }

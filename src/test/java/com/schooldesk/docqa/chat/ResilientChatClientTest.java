@@ -50,12 +50,12 @@ class ResilientChatClientTest {
     @Test
     void neverLeaksProviderDetailToTheClient() {
         ResilientChatClient client = new ResilientChatClient((system, user) -> {
-            throw new RuntimeException("api-key sk-secret-12345 rejected by upstream");
+            throw new RuntimeException("api-key REDACTED-TOKEN-abc123 rejected by upstream");
         });
 
         assertThatThrownBy(() -> client.complete("s", "u"))
                 .isInstanceOf(ModelProviderException.class)
-                .hasMessageNotContaining("sk-secret")
+                .hasMessageNotContaining("REDACTED-TOKEN")
                 .hasMessageContaining("temporarily unavailable");
     }
 }

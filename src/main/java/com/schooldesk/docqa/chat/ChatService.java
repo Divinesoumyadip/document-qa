@@ -3,6 +3,7 @@ package com.schooldesk.docqa.chat;
 import java.util.List;
 import java.util.UUID;
 
+import com.schooldesk.docqa.conversation.ConversationHistoryService;
 import com.schooldesk.docqa.retrieval.RetrievalService;
 import com.schooldesk.docqa.retrieval.RetrievedChunk;
 import com.schooldesk.docqa.tenancy.TenantContext;
@@ -24,13 +25,15 @@ public class ChatService {
     private final RetrievalService retrieval;
     private final PromptBuilder promptBuilder;
     private final ChatClient chatClient;
+    private final ConversationHistoryService history;
     private final JdbcTemplate jdbc;
 
     ChatService(RetrievalService retrieval, PromptBuilder promptBuilder,
-            ChatClient chatClient, JdbcTemplate jdbc) {
+            ChatClient chatClient, ConversationHistoryService history, JdbcTemplate jdbc) {
         this.retrieval = retrieval;
         this.promptBuilder = promptBuilder;
         this.chatClient = chatClient;
+        this.history = history;
         this.jdbc = jdbc;
     }
 
@@ -48,10 +51,16 @@ public class ChatService {
             return new ChatResponse(conversationId, REFUSAL_MESSAGE, false, List.of());
         }
 
-        String userPrompt = promptBuilder.buildUserPrompt(request.question(), chunks);
+        // Prior turns are prepended so a follow-up like "what about class 9?"
+        // resolves against what was actually asked before, not in isolation.
+        List<ConversationHistoryService.Turn> priorTurns = history.recentTurns(conversationId);
+        String historyBlock = history.renderForPrompt(priorTurns);
+        String userPrompt = historyBlock + promptBuilder.buildUserPrompt(request.question(), chunks);
+
         String answer = chatClient.complete(PromptBuilder.SYSTEM_PROMPT, userPrompt);
 
-        persistTurn(conversationId, request.question(), answer);
+        UUID assistantMessageId = persistTurn(conversationId, request.question(), answer);
+        persistSources(assistantMessageId, chunks);
 
         List<SourceDto> sources = chunks.stream()
                 .map(c -> new SourceDto(
@@ -79,19 +88,32 @@ public class ChatService {
         return id;
     }
 
-    private void persistTurn(UUID conversationId, String question, String answer) {
+    /** Returns the assistant message id so callers can attach sources to it. */
+    private UUID persistTurn(UUID conversationId, String question, String answer) {
         jdbc.update("""
                 INSERT INTO messages (id, conversation_id, role, content)
                 VALUES (?, ?, 'user', ?)
                 """, UUID.randomUUID(), conversationId, question);
 
+        UUID assistantMessageId = UUID.randomUUID();
         jdbc.update("""
                 INSERT INTO messages (id, conversation_id, role, content)
                 VALUES (?, ?, 'assistant', ?)
-                """, UUID.randomUUID(), conversationId, answer);
+                """, assistantMessageId, conversationId, answer);
 
         jdbc.update("UPDATE conversations SET last_message_at = now() WHERE id = ?",
                 conversationId);
+
+        return assistantMessageId;
+    }
+
+    private void persistSources(UUID messageId, List<RetrievedChunk> chunks) {
+        for (RetrievedChunk chunk : chunks) {
+            jdbc.update("""
+                    INSERT INTO message_sources (id, message_id, chunk_id, similarity_score)
+                    VALUES (?, ?, ?, ?)
+                    """, UUID.randomUUID(), messageId, chunk.chunkId(), chunk.similarity());
+        }
     }
 
     private String truncate(String content) {

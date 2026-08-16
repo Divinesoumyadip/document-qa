@@ -5,6 +5,7 @@ import java.util.UUID;
 
 import com.schooldesk.docqa.chunking.ChunkingProperties;
 import com.schooldesk.docqa.embedding.EmbeddingClient;
+import com.schooldesk.docqa.observability.AiMetrics;
 import com.schooldesk.docqa.tenancy.TenantContext;
 
 import org.slf4j.Logger;
@@ -20,12 +21,14 @@ public class RetrievalService {
     private final JdbcTemplate jdbc;
     private final EmbeddingClient embeddingClient;
     private final ChunkingProperties properties;
+    private final AiMetrics metrics;
 
     RetrievalService(JdbcTemplate jdbc, EmbeddingClient embeddingClient,
-            ChunkingProperties properties) {
+            ChunkingProperties properties, AiMetrics metrics) {
         this.jdbc = jdbc;
         this.embeddingClient = embeddingClient;
         this.properties = properties;
+        this.metrics = metrics;
     }
 
     public List<RetrievedChunk> retrieve(String question, String category, Integer topK) {
@@ -42,6 +45,11 @@ public class RetrievalService {
         List<RetrievedChunk> aboveThreshold = results.stream()
                 .filter(c -> c.similarity() >= properties.similarityThreshold())
                 .toList();
+
+        metrics.recordRetrieval(elapsed, results.size(), aboveThreshold.size());
+        if (aboveThreshold.isEmpty()) {
+            metrics.recordRefusal();
+        }
 
         log.info("Retrieval tenantId={} category={} candidates={} aboveThreshold={} latencyMs={}",
                 tenantId, category, results.size(), aboveThreshold.size(), elapsed);

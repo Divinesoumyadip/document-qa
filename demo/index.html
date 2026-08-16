@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Document Q&A — Demo</title>
+<style>
+  body { font-family: -apple-system, Segoe UI, sans-serif; max-width: 720px;
+         margin: 40px auto; padding: 0 20px; background: #0f1115; color: #e6e6e6; }
+  h1 { font-size: 22px; }
+  .card { background: #1a1d24; border: 1px solid #2a2e38; border-radius: 10px;
+          padding: 20px; margin-bottom: 20px; }
+  label { display: block; margin: 10px 0 4px; font-size: 13px; color: #9aa4b2; }
+  input[type=text], input[type=file] {
+    width: 100%; padding: 10px; border-radius: 6px; border: 1px solid #2a2e38;
+    background: #0f1115; color: #e6e6e6; box-sizing: border-box; font-size: 14px;
+  }
+  button {
+    margin-top: 14px; padding: 10px 18px; border: none; border-radius: 6px;
+    background: #4f8cff; color: white; font-size: 14px; cursor: pointer;
+  }
+  button:hover { background: #3d78e6; }
+  button:disabled { background: #3a3d45; cursor: not-allowed; }
+  .tenant-row { display: flex; gap: 10px; align-items: center; margin-bottom: 20px; }
+  .tenant-row select { padding: 8px; border-radius: 6px; background: #1a1d24;
+    color: #e6e6e6; border: 1px solid #2a2e38; }
+  .result { margin-top: 16px; padding: 14px; border-radius: 8px; font-size: 14px; }
+  .result.grounded { background: #10251a; border: 1px solid #1e5c37; }
+  .result.refused { background: #2a1414; border: 1px solid #6b2020; }
+  .answer { font-size: 15px; margin-bottom: 10px; }
+  .source { background: #0f1115; border-radius: 6px; padding: 8px 12px; margin-top: 6px;
+    font-size: 12px; color: #9aa4b2; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; }
+  .badge.grounded { background: #1e5c37; color: #b7f7cf; }
+  .badge.refused { background: #6b2020; color: #ffb3b3; }
+  .status { font-size: 12px; color: #9aa4b2; margin-top: 8px; }
+  #docList { font-size: 13px; color: #9aa4b2; margin-top: 10px; }
+</style>
+</head>
+<body>
+
+<h1>Document Q&A — demo</h1>
+<p style="color:#9aa4b2; font-size:14px;">
+  Talks directly to <code>localhost:8080</code>. Nothing here is stored anywhere except your own server.
+</p>
+
+<div class="tenant-row">
+  <label style="margin:0;">Acting as school:</label>
+  <select id="tenant">
+    <option value="school-a">school-a</option>
+    <option value="school-b">school-b</option>
+  </select>
+</div>
+
+<div class="card">
+  <h3>1. Upload a document</h3>
+  <label>Title</label>
+  <input type="text" id="title" value="Fee Policy 2024">
+  <label>Category</label>
+  <input type="text" id="category" value="FEES">
+  <label>File (.pdf / .docx / .txt / .md)</label>
+  <input type="file" id="file">
+  <button onclick="upload()">Upload</button>
+  <div class="status" id="uploadStatus"></div>
+  <div id="docList"></div>
+</div>
+
+<div class="card">
+  <h3>2. Ask a question</h3>
+  <label>Question</label>
+  <input type="text" id="question" value="What is the late fee for term 2?">
+  <button onclick="ask()">Ask</button>
+  <div id="chatResult"></div>
+</div>
+
+<script>
+const API = "http://localhost:8080";
+
+function tenant() { return document.getElementById("tenant").value; }
+
+async function upload() {
+  const fileInput = document.getElementById("file");
+  const status = document.getElementById("uploadStatus");
+  if (!fileInput.files.length) {
+    status.textContent = "Pick a file first.";
+    return;
+  }
+  const form = new FormData();
+  form.append("file", fileInput.files[0]);
+  form.append("title", document.getElementById("title").value);
+  form.append("category", document.getElementById("category").value);
+
+  status.textContent = "Uploading...";
+  const res = await fetch(`${API}/api/v1/documents`, {
+    method: "POST",
+    headers: { "X-Tenant-Id": tenant() },
+    body: form
+  });
+  const data = await res.json();
+  status.textContent = `${res.status} — status: ${data.status}, id: ${data.id}`;
+  setTimeout(listDocs, 2000);
+}
+
+async function listDocs() {
+  const res = await fetch(`${API}/api/v1/documents`, {
+    headers: { "X-Tenant-Id": tenant() }
+  });
+  const data = await res.json();
+  const list = document.getElementById("docList");
+  list.innerHTML = (data.content || []).map(d =>
+    `• ${d.title} — <b>${d.status}</b> (${d.chunkCount} chunks)`
+  ).join("<br>");
+}
+
+async function ask() {
+  const question = document.getElementById("question").value;
+  const resultDiv = document.getElementById("chatResult");
+  resultDiv.innerHTML = "<div class='status'>Thinking...</div>";
+
+  const res = await fetch(`${API}/api/v1/chat`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-Tenant-Id": tenant() },
+    body: JSON.stringify({ question })
+  });
+  const data = await res.json();
+
+  const cls = data.grounded ? "grounded" : "refused";
+  const badge = data.grounded
+    ? "<span class='badge grounded'>GROUNDED</span>"
+    : "<span class='badge refused'>REFUSED — no LLM call made</span>";
+
+  let sourcesHtml = "";
+  if (data.sources && data.sources.length) {
+    sourcesHtml = data.sources.map(s =>
+      `<div class="source">📄 ${s.documentTitle}${s.pageNumber ? ", page " + s.pageNumber : ""}
+       — similarity ${s.similarityScore}<br>"${s.snippet}"</div>`
+    ).join("");
+  }
+
+  resultDiv.innerHTML = `
+    <div class="result ${cls}">
+      ${badge}
+      <div class="answer" style="margin-top:8px;">${data.answer}</div>
+      ${sourcesHtml}
+    </div>`;
+}
+
+listDocs();
+</script>
+
+</body>
+</html>
