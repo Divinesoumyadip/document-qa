@@ -30,15 +30,17 @@ public class DocumentUploadService {
     private final DocumentRepository documents;
     private final ThreadPoolTaskExecutor ingestionExecutor;
     private final IngestionProperties properties;
+    private final IngestionPipeline pipeline;
 
     DocumentUploadService(StagingArea stagingArea, ContentTypeSniffer sniffer,
             DocumentRepository documents, ThreadPoolTaskExecutor ingestionExecutor,
-            IngestionProperties properties) {
+            IngestionProperties properties, IngestionPipeline pipeline) {
         this.stagingArea = stagingArea;
         this.sniffer = sniffer;
         this.documents = documents;
         this.ingestionExecutor = ingestionExecutor;
         this.properties = properties;
+        this.pipeline = pipeline;
     }
 
     public UploadOutcome accept(MultipartFile upload, String title, String category) {
@@ -53,8 +55,7 @@ public class DocumentUploadService {
             DocumentType type = sniff(staged.path());
             String filename = safeFilename(upload);
             return register(tenantId, staged, type, resolveTitle(title, filename), filename, category);
-        }
-        catch (RuntimeException | Error failure) {
+        } catch (RuntimeException | Error failure) {
             stagingArea.discard(staged.path());
             throw failure;
         }
@@ -68,9 +69,7 @@ public class DocumentUploadService {
 
         try {
             documents.saveAndFlush(document);
-        }
-        catch (DataIntegrityViolationException duplicate) {
-
+        } catch (DataIntegrityViolationException duplicate) {
             stagingArea.discard(staged.path());
             return existingDocument(tenantId, staged.sha256());
         }
@@ -82,13 +81,13 @@ public class DocumentUploadService {
     private void submit(DocumentEntity document, StagingArea.StagedFile staged, DocumentType type) {
         try {
             ingestionExecutor.execute(() -> {
-
-                log.info("Ingestion queued documentId={} type={} bytes={}",
-                        document.getId(), type, staged.sizeBytes());
+                try {
+                    pipeline.ingest(document.getId(), staged.path(), type);
+                } finally {
+                    stagingArea.discard(staged.path());
+                }
             });
-        }
-        catch (RejectedExecutionException queueFull) {
-
+        } catch (RejectedExecutionException queueFull) {
             documents.delete(document);
             stagingArea.discard(staged.path());
             throw new IngestionCapacityException(properties.retryAfterSeconds());
@@ -98,26 +97,23 @@ public class DocumentUploadService {
     private UploadOutcome existingDocument(String tenantId, String sha256) {
         DocumentEntity existing = documents.findByTenantIdAndContentHash(tenantId, sha256)
                 .orElseThrow(() -> new IllegalStateException(
-                        "Unique violation on content hash but no row found for this tenant"));
+                        "Unique violation on content hash but no row found"));
         return new UploadOutcome(existing, true);
     }
 
     private DocumentType sniff(Path staged) {
-        Optional<DocumentType> detected;
         try {
-            detected = sniffer.sniff(staged);
-        }
-        catch (IOException ex) {
+            return sniffer.sniff(staged)
+                    .orElseThrow(UnsupportedDocumentTypeException::new);
+        } catch (IOException ex) {
             throw new UncheckedIOException(ex);
         }
-        return detected.orElseThrow(UnsupportedDocumentTypeException::new);
     }
 
     private StagingArea.StagedFile stage(MultipartFile upload) {
         try {
             return stagingArea.stage(upload);
-        }
-        catch (IOException ex) {
+        } catch (IOException ex) {
             throw new UncheckedIOException(ex);
         }
     }
@@ -128,9 +124,7 @@ public class DocumentUploadService {
 
     private String safeFilename(MultipartFile upload) {
         String filename = upload.getOriginalFilename();
-        if (filename == null || filename.isBlank()) {
-            return "untitled";
-        }
+        if (filename == null || filename.isBlank()) return "untitled";
         return Path.of(filename.replace('\\', '/')).getFileName().toString();
     }
 

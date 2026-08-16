@@ -1,4 +1,11 @@
 spring:
+  ai:
+    openai:
+      api-key: ${OPENAI_API_KEY:}
+      embedding:
+        options:
+          model: text-embedding-3-small
+
   application:
     name: document-qa
 
@@ -48,6 +55,12 @@ management:
 docqa:
   ai:
     provider: ${DOCQA_AI_PROVIDER:stub}
+
+  chunking:
+    chunk-size: 700
+    overlap: 100
+    default-top-k: 5
+    similarity-threshold: 0.65
 
   ingestion:
     max-file-size: 20MB
