@@ -1,0 +1,62 @@
+spring:
+  application:
+    name: document-qa
+
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/docqa}
+    username: ${POSTGRES_USER:docqa}
+    password: ${POSTGRES_PASSWORD:docqa_local_dev}
+    hikari:
+      maximum-pool-size: 10
+      connection-timeout: 5000
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: false
+
+  threads:
+    virtual:
+      enabled: true
+
+  servlet:
+    multipart:
+      max-file-size: 20MB
+      max-request-size: 21MB
+
+server:
+  port: ${APP_PORT:8080}
+  shutdown: graceful
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, info, metrics, prometheus
+  endpoint:
+    health:
+      show-details: always
+  health:
+    db:
+      enabled: true
+
+docqa:
+  ai:
+    provider: ${DOCQA_AI_PROVIDER:stub}
+
+  ingestion:
+    max-file-size: 20MB
+    staging-directory: ${DOCQA_STAGING_DIR:${java.io.tmpdir}/docqa-staging}
+    worker-threads: 2
+    queue-capacity: 50
+    retry-after-seconds: 60
+    orphan-timeout-minutes: 30
+
+logging:
+  level:
+    org.flywaydb: INFO

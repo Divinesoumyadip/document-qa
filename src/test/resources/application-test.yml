@@ -1,0 +1,6 @@
+spring:
+  flyway:
+    clean-disabled: false
+docqa:
+  ai:
+    provider: stub

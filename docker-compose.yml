@@ -1,0 +1,39 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-docqa}
+      POSTGRES_USER: ${POSTGRES_USER:-docqa}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-docqa_local_dev}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-docqa} -d ${POSTGRES_DB:-docqa}"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  app:
+    build: .
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-docqa}
+      POSTGRES_USER: ${POSTGRES_USER:-docqa}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-docqa_local_dev}
+      DOCQA_AI_PROVIDER: ${DOCQA_AI_PROVIDER:-stub}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+    ports:
+      - "${APP_PORT:-8080}:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8080/actuator/health | grep -q '\"status\":\"UP\"'"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 30s
+
+volumes:
+  pgdata:
