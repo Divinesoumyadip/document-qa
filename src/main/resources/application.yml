@@ -75,5 +75,8 @@ docqa:
     orphan-timeout-minutes: 30
 
 logging:
+  pattern:
+    correlation: "[%X{correlationId:-}] "
+  include-application-name: false
   level:
     org.flywaydb: INFO
