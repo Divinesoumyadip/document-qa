@@ -62,14 +62,6 @@ docqa:
     default-top-k: 5
     similarity-threshold: ${DOCQA_SIMILARITY_THRESHOLD:0.25}
 
----
-spring:
-  config:
-    activate:
-      on-property: docqa.ai.provider=openai
-docqa:
-  chunking:
-    similarity-threshold: ${DOCQA_SIMILARITY_THRESHOLD:0.65}
 
   conversation:
     max-turns: 6

@@ -1,6 +1,7 @@
 package com.schooldesk.docqa.tenancy;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.regex.Pattern;
 
 import jakarta.servlet.FilterChain;
@@ -22,7 +23,18 @@ public class TenantFilter extends OncePerRequestFilter {
 
     private static final Pattern VALID_TENANT = Pattern.compile("^[A-Za-z0-9_-]{1,64}$");
 
-    private static final String UNSCOPED_PREFIX = "/actuator";
+    /**
+     * Surfaces a browser reaches directly, which cannot attach a custom header:
+     * the demo page, Swagger UI, the OpenAPI document, and infrastructure
+     * endpoints. Everything under /api stays tenant-scoped -- widening this
+     * list is how a tenancy hole gets introduced, so it is deliberately short
+     * and has a test asserting /api/** still rejects a missing header.
+     */
+    private static final List<String> UNSCOPED_PREFIXES = List.of(
+            "/actuator", "/swagger-ui", "/v3/api-docs", "/webjars");
+
+    private static final List<String> UNSCOPED_EXACT = List.of(
+            "/", "/index.html", "/favicon.ico");
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
@@ -46,7 +58,11 @@ public class TenantFilter extends OncePerRequestFilter {
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
-        return request.getRequestURI().startsWith(UNSCOPED_PREFIX);
+        String uri = request.getRequestURI();
+        if (UNSCOPED_EXACT.contains(uri)) {
+            return true;
+        }
+        return UNSCOPED_PREFIXES.stream().anyMatch(uri::startsWith);
     }
 
     private void writeMissingTenantProblem(HttpServletResponse response) throws IOException {
