@@ -5,4 +5,5 @@ docqa:
   ai:
     provider: stub
   chunking:
-    similarity-threshold: 0.25
+    similarity-thresholds:
+      stub: 0.25

@@ -48,17 +48,39 @@ public class RecursiveChunker {
     }
 
     private List<String> split(String text, int size, int overlap) {
-        if (text.length() <= size) {
+        return splitRecursive(text, size, overlap, 0);
+    }
+
+    /**
+     * Genuinely recursive: when a piece still exceeds the target after
+     * splitting on the current separator, it is re-split on the next one down
+     * rather than passed through whole. The earlier version stopped after one
+     * pass, so a single 4000-character paragraph in a document that happened to
+     * contain a blank line elsewhere came out as one 4000-character chunk.
+     */
+    private List<String> splitRecursive(String text, int size, int overlap, int separatorIndex) {
+        if (text.length() <= size || separatorIndex >= SEPARATORS.length) {
             return List.of(text);
         }
 
-        for (String sep : SEPARATORS) {
-            List<String> pieces = splitBySeparator(text, sep, size);
-            if (pieces.size() > 1) {
-                return mergeWithOverlap(pieces, size, overlap);
+        String separator = SEPARATORS[separatorIndex];
+        List<String> pieces = splitBySeparator(text, separator, size);
+
+        if (pieces.size() <= 1) {
+            return splitRecursive(text, size, overlap, separatorIndex + 1);
+        }
+
+        List<String> resolved = new ArrayList<>();
+        for (String piece : pieces) {
+            if (piece.length() > size) {
+                resolved.addAll(splitRecursive(piece, size, overlap, separatorIndex + 1));
+            }
+            else {
+                resolved.add(piece);
             }
         }
-        return mergeWithOverlap(List.of(text), size, overlap);
+
+        return mergeWithOverlap(resolved, size, overlap, separator);
     }
 
     private List<String> splitBySeparator(String text, String sep, int size) {
@@ -80,7 +102,9 @@ public class RecursiveChunker {
         return pieces;
     }
 
-    private List<String> mergeWithOverlap(List<String> pieces, int size, int overlap) {
+    private List<String> mergeWithOverlap(List<String> pieces, int size, int overlap,
+            String separator) {
+        String joiner = separator.isEmpty() ? "" : separator;
         List<String> result = new ArrayList<>();
         StringBuilder current = new StringBuilder();
 
@@ -91,7 +115,7 @@ public class RecursiveChunker {
                 current = new StringBuilder(current.substring(overlapStart));
             }
             if (current.length() > 0) {
-                current.append(" ");
+                current.append(joiner);
             }
             current.append(piece);
         }

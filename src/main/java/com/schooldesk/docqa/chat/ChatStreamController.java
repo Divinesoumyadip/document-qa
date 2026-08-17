@@ -87,8 +87,8 @@ class ChatStreamController {
                 emitter.send(SseEmitter.event().name("token")
                         .data(ChatService.REFUSAL_MESSAGE));
                 emitter.send(SseEmitter.event().name("sources").data(List.of()));
-                turnWriter.persistTurn(conversationId, request.question(),
-                        ChatService.REFUSAL_MESSAGE);
+                turnWriter.persistTurnWithSources(conversationId, request.question(),
+                        ChatService.REFUSAL_MESSAGE, List.of());
                 emitter.complete();
                 return;
             }
@@ -114,8 +114,8 @@ class ChatStreamController {
                         try {
                             emitter.send(SseEmitter.event().name("sources")
                                     .data(toSources(chunks)));
-                            turnWriter.persistTurn(conversationId, request.question(),
-                                    collected.toString());
+                            turnWriter.persistTurnWithSources(conversationId, request.question(),
+                                    collected.toString(), chunks);
                             emitter.complete();
                         }
                         catch (IOException ignored) {

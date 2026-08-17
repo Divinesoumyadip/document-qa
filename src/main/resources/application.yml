@@ -60,7 +60,9 @@ docqa:
     chunk-size: 700
     overlap: 100
     default-top-k: 5
-    similarity-threshold: ${DOCQA_SIMILARITY_THRESHOLD:0.25}
+    similarity-thresholds:
+      stub: ${DOCQA_SIMILARITY_THRESHOLD_STUB:0.25}
+      openai: ${DOCQA_SIMILARITY_THRESHOLD_OPENAI:0.65}
 
 
   conversation:

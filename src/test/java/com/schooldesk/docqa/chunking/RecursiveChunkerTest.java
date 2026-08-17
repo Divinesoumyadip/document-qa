@@ -9,7 +9,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class RecursiveChunkerTest {
 
     private final RecursiveChunker chunker = new RecursiveChunker(
-            new ChunkingProperties(700, 100, 5, 0.65));
+            new ChunkingProperties(700, 100, 5, java.util.Map.of("stub", 0.65)));
 
     @Test
     void returnsEmptyListForNullText() {

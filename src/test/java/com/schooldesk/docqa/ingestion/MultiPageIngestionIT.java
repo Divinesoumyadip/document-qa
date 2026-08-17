@@ -68,7 +68,7 @@ class MultiPageIngestionIT extends AbstractPostgresIT {
 
     @Test
     void chunkerAssignsUniqueIndicesAcrossSeparateChunkCallsGivenAStartOffset() {
-        RecursiveChunker chunker = new RecursiveChunker(new ChunkingProperties(50, 10, 5, 0.5));
+        RecursiveChunker chunker = new RecursiveChunker(new ChunkingProperties(50, 10, 5, java.util.Map.of("stub", 0.5)));
 
         List<Chunk> page1 = chunker.chunk("A".repeat(200), 1, "Doc", 0);
         List<Chunk> page2 = chunker.chunk("B".repeat(200), 2, "Doc", page1.size());

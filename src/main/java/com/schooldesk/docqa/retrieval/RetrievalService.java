@@ -10,6 +10,7 @@ import com.schooldesk.docqa.tenancy.TenantContext;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
@@ -22,13 +23,16 @@ public class RetrievalService {
     private final EmbeddingClient embeddingClient;
     private final ChunkingProperties properties;
     private final AiMetrics metrics;
+    private final String provider;
 
     RetrievalService(JdbcTemplate jdbc, EmbeddingClient embeddingClient,
-            ChunkingProperties properties, AiMetrics metrics) {
+            ChunkingProperties properties, AiMetrics metrics,
+            @Value("${docqa.ai.provider:stub}") String provider) {
         this.jdbc = jdbc;
         this.embeddingClient = embeddingClient;
         this.properties = properties;
         this.metrics = metrics;
+        this.provider = provider;
     }
 
     public List<RetrievedChunk> retrieve(String question, String category, Integer topK) {
@@ -42,8 +46,9 @@ public class RetrievalService {
         List<RetrievedChunk> results = search(tenantId, category, literal, limit);
         long elapsed = System.currentTimeMillis() - start;
 
+        double threshold = properties.thresholdFor(provider);
         List<RetrievedChunk> aboveThreshold = results.stream()
-                .filter(c -> c.similarity() >= properties.similarityThreshold())
+                .filter(c -> c.similarity() >= threshold)
                 .toList();
 
         metrics.recordRetrieval(elapsed, results.size(), aboveThreshold.size());
@@ -51,8 +56,8 @@ public class RetrievalService {
             metrics.recordRefusal();
         }
 
-        log.info("Retrieval tenantId={} category={} candidates={} aboveThreshold={} latencyMs={}",
-                tenantId, category, results.size(), aboveThreshold.size(), elapsed);
+        log.info("Retrieval tenantId={} category={} provider={} threshold={} candidates={} aboveThreshold={} latencyMs={}",
+                tenantId, category, provider, threshold, results.size(), aboveThreshold.size(), elapsed);
 
         return aboveThreshold;
     }
