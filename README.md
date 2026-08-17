@@ -298,9 +298,8 @@ vector search, so testing against it wouldn't prove anything real.
 ## What's not done yet (being honest about it)
 
 - The 0.65 threshold hasn't been tested against a real set of questions yet
-- I built the code to remember previous questions in a conversation (so
-  "what about class 9?" works as a follow-up), but I haven't actually
-  connected it into the answer-generating step yet
+- Conversation memory works on the normal `/chat` endpoint, but not on the
+  streaming one yet
 - I built counters to track how many tokens/cost each request uses, but
   haven't wired them into the actual request flow yet
 - Uploaded files are stored on local disk for now — fine for one server,
