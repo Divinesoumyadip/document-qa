@@ -1,5 +1,10 @@
 # Document Q&A backend (RAG project)
 
+
+
+<img width="1847" height="735" alt="image" src="https://github.com/user-attachments/assets/58456af7-f466-4a17-b0ab-9554c41d35c3" />
+
+
 This is a backend service I built for a school office. Basically — a school
 has a bunch of documents (fee policy, transport rules, HR leave rules etc) and
 right now if a parent calls and asks "what's the late fee for term 2", someone
@@ -116,6 +121,9 @@ Took me way too long to figure this one out, so leaving it here.
    - flips the status to READY (or FAILED if something broke)
 ```
 
+
+<img width="1017" height="527" alt="image" src="https://github.com/user-attachments/assets/1c84b6b9-a997-4b4d-be69-78a08f4b30ae" />
+
 ### 2. Asking a question
 
 ```
@@ -146,6 +154,7 @@ Took me way too long to figure this one out, so leaving it here.
  never even
  called
 ```
+<img width="1002" height="236" alt="image" src="https://github.com/user-attachments/assets/953f4faf-4e83-44c1-bfa0-e92094f24986" />
 
 That refusal branch matters a lot — the whole point is this shouldn't ever
 make up an answer. If it doesn't have real information, it says so.
@@ -179,6 +188,9 @@ and the chunk text itself never says the word "fee policy". But when I show
 the answer's source to the user, I show the clean original text — not the
 label — because nobody wants to read a machine-generated tag stuck onto
 their policy document.
+
+
+<img width="987" height="342" alt="image" src="https://github.com/user-attachments/assets/700d31c0-e565-4960-bea0-5f8820ac6daa" />
 
 ## Which AI model + how much it costs
 
